@@ -65,22 +65,15 @@ class Hand() {
     }
 }
 
-open class Human {
-    var tag: String
-    var hands: ArrayList<Hand>
-    var money: Int
+open class Human(name: String, amt: Int=100) {
 
-    constructor()  
-
-    constructor(name: String) : this() {
-        this.tag = name
-    }
-    constructor(name: String, amt: Int) : this(name) {
-        this.money = amt
-    }
+    var tag: String = "Player"
+    var hands: ArrayList<Hand> = ArrayList<Hand>()
+    var money: Int = amt
     init {
         hands.add(Hand())
     }
+
     fun receiveCard(c: Card) {
         for (h in hands) {
             if (h.size == 1 && h[0] == c) {
@@ -90,12 +83,12 @@ open class Human {
     }
 }
 
-class Player(name: String): Human(name) {
-    constructor(name: String, amt: Int) : super(name, amt)
+class Player(name: String, amt: Int=100): Human(name, amt) {
+    
 }
 
-class Dealer(name: String): Human(name) {
-    constructor(name: String, amt: Int) : super(name, amt)
+class Dealer(name: String, amt: Int=100000): Human(name, amt) {
+    
 }
 
 fun main() {
