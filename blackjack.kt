@@ -103,6 +103,14 @@ open class Human(name: String="Player", amt: Int=100) {
         hands[which_hand].receiveCard(c)
     }
 
+    fun getScore(): Int {
+        return hands.minByOrNull{ it.score }?.score as Int
+    }
+
+    fun eval() {
+        for (h in hands) h.eval()
+    }
+
     override fun toString(): String {
         var ret: String = tag + "'s cards:\n"
         for (i in 0..hands.size-1) {
@@ -116,10 +124,10 @@ class Player(name: String, amt: Int=100): Human(name, amt) {}
 
 class Dealer(amt: Int=100000): Human("Dealer", amt) {
     var d: Deck = Deck(0)
-    fun deal(player: Player) {
-        d.deal(player)
-        d.deal(this)
-    }
+}
+
+infix fun Dealer.deal(player: Human) {
+    d.deal(player)
 }
 
 class Game() {
@@ -131,15 +139,66 @@ class Game() {
         print("Enter money: ")
         val amt: String? = readLine()
         player = Player(name as String, amt?.toInt() as Int)
-        for (i in 1..3) {
-            dealer.deal(player)
-            print(dealer)
-            print(player)
+        gameLoop()
+    }
+    fun gameLoop() {
+        for (i in 1..2) {
+            dealer deal player
+            dealer deal dealer
         }
+        print(player)
+        var winner: String = "None"
+        while (winner == "None") {
+            print("Enter action (hit | stay | hand): ")
+            val action: String = readLine() as String
+            if (action == "hand") {
+                print(player)
+            } else if (action == "hit") {
+                dealer deal player
+                dealer deal dealer
+            } else if (action == "stay") {
+                print(player)
+                print(dealer)
+                winner = determineWinner()
+            }
+        }
+    }
+    fun determineWinner(): String {
+        player.eval()
+        dealer.eval()
+        val ph: Int = player.getScore()
+        val dh: Int = dealer.getScore()
+        if (ph > 21) {
+            println("Player bust!")
+            return "Dealer";
+        } else if (dh > 21) {
+            println("Dealer bust!")
+            return "Player";
+        } else if (dh == 21 && ph == 21) {
+            println("Dealer and player have 21!")
+            return "No one";
+        } else if (dh == 21) {
+            println("Dealer has 21!")
+            return "Dealer";
+        } else if (ph == 21) {
+            println("Player has 21!")
+            return "Player";
+        } else if (ph == dh) {
+            println("Tie!")
+            return "No one";
+        } else if (ph > dh) {
+            println("Player has a higher total!")
+            return "Player";
+        } else if (dh > ph) {
+            println("Dealer has a higher total!")
+            return "Dealer";
+        }
+        return "None"
     }
 }
 
 fun main() {
+    println("compiled!")
     var h = Human("Abhi", 200)
     println("${h.money}")
     var c = Card("S", 10, "T")
