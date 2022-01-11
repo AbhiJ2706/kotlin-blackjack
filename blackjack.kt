@@ -39,7 +39,6 @@ data class Deck(val temp: Int) {
             }
         }
         cards.shuffle()
-        println(cards.joinToString(separator=" "))
     }
     fun deal(player: Human, outCard: Boolean=false) {
         for (i in 0..player.hands.size-1) {
@@ -47,6 +46,10 @@ data class Deck(val temp: Int) {
             if (outCard) println(player.tag + " receives " + c)
             player.receiveCard(c, i)
         }
+    }
+    fun reset() {
+        cards = ArrayList<Card>()
+        build()
     }
 }
 
@@ -119,12 +122,22 @@ open class Human(name: String="Player", amt: Int=100) {
         }
         return ret
     }
+
+    open fun reset() {
+        hands = ArrayList<Hand>()
+        hands.add(Hand())
+    }
 }
 
 class Player(name: String, amt: Int=100): Human(name, amt) {}
 
 class Dealer(amt: Int=100000): Human("Dealer", amt) {
     var d: Deck = Deck(0)
+    override fun reset() {
+        hands = ArrayList<Hand>()
+        hands.add(Hand())
+        d.reset()
+    }
 }
 
 infix fun Dealer.deal(player: Human) {
@@ -160,7 +173,7 @@ class Game() {
         val bet: Int = run {
             var money: Int = 0
             while (money < 1 || money > player.money) {
-                print("Enter money (1- ${player.money}): ")
+                print("Enter this round's bet (1- ${player.money}): ")
                 money = readLine()?.toInt() as Int
             }
             money
@@ -174,7 +187,7 @@ class Game() {
             val action: String = readLine() as String
             if (action == "hand") {
                 print(player)
-            } else if (action == "hit") {
+            } else if (action == "hit" && player.getScore() < 21) {
                 dealer deal player
             } else if (action == "stay") {
                 while (dealer.getScore() < 17) dealer deal dealer
@@ -182,12 +195,14 @@ class Game() {
                 print(dealer)
                 winner = determineWinner()
                 when(winner) {
-                    "Player" -> player wins bet
-                    "Dealer" -> dealer wins bet
+                    "Player" -> run {player wins bet}
+                    "Dealer" -> run {dealer wins bet; player wins -bet}
                     else -> println("It's a tie!")
                 }
             }
         }
+        player.reset()
+        dealer.reset()
     }
     fun determineWinner(): String {
         player.eval()
