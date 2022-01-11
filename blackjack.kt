@@ -41,9 +41,10 @@ data class Deck(val temp: Int) {
         cards.shuffle()
         println(cards.joinToString(separator=" "))
     }
-    fun deal(player: Human) {
+    fun deal(player: Human, outCard: Boolean=false) {
         for (i in 0..player.hands.size-1) {
             val c: Card = cards.removeAt(0)
+            if (outCard) println(player.tag + " receives " + c)
             player.receiveCard(c, i)
         }
     }
@@ -127,25 +128,45 @@ class Dealer(amt: Int=100000): Human("Dealer", amt) {
 }
 
 infix fun Dealer.deal(player: Human) {
-    d.deal(player)
+    d.deal(player, outCard=(!(player === this)))
+}
+
+infix fun Human.wins(amt: Int) {
+    this.money += amt
 }
 
 class Game() {
     var dealer: Dealer = Dealer()
     var player: Player
     init {
-        print("Enter name: ")
-        val name: String? = readLine()
-        print("Enter money: ")
-        val amt: String? = readLine()
-        player = Player(name as String, amt?.toInt() as Int)
-        gameLoop()
+        player = run {
+            print("Enter name: ")
+            val name: String? = readLine()
+            val money: Int = run {
+                var temp: Int = 0
+                while (temp < 100 || temp > 1000) {
+                    print("Enter money (100- 1000): ")
+                    temp = readLine()?.toInt() as Int
+                }
+                temp
+            }
+            Player(name as String, money)
+        }
+        while (player.money > 0) {
+            gameLoop()
+        }
     }
     fun gameLoop() {
-        for (i in 1..2) {
-            dealer deal player
-            dealer deal dealer
+        val bet: Int = run {
+            var money: Int = 0
+            while (money < 1 || money > player.money) {
+                print("Enter money (1- ${player.money}): ")
+                money = readLine()?.toInt() as Int
+            }
+            money
         }
+        for (i in 1..2) dealer deal player
+        for (i in 1..2) dealer deal dealer
         print(player)
         var winner: String = "None"
         while (winner == "None") {
@@ -155,11 +176,16 @@ class Game() {
                 print(player)
             } else if (action == "hit") {
                 dealer deal player
-                dealer deal dealer
             } else if (action == "stay") {
+                while (dealer.getScore() < 17) dealer deal dealer
                 print(player)
                 print(dealer)
                 winner = determineWinner()
+                when(winner) {
+                    "Player" -> player wins bet
+                    "Dealer" -> dealer wins bet
+                    else -> println("It's a tie!")
+                }
             }
         }
     }
@@ -198,13 +224,5 @@ class Game() {
 }
 
 fun main() {
-    println("compiled!")
-    var h = Human("Abhi", 200)
-    println("${h.money}")
-    var c = Card("S", 10, "T")
-    println("${c.suit}, ${c.worth}")
-    println("${c}")
-    var d = Card("S", 10, "T")
-    println("${c == d}")
-    val g: Game = Game()
+    Game()
 }
