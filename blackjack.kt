@@ -2,6 +2,44 @@ enum class Suits {
     Spades, Hearts, Diamonds, Clubs
 }
 
+enum class GameAction {
+    NamePrompt, MoneyPrompt, BetPrompt, ActionPrompt, PInfo, Tie, PBust, DBust, DP21, D21, P21, PT, DT
+}
+
+class GameObserver() {
+    var subject: Game? = null
+
+    fun notify(act: GameAction, player: Human?=null) {
+        when(act) {
+            GameAction.NamePrompt -> print("Enter name: ")
+            GameAction.MoneyPrompt -> print("Enter money (100- 1000): ")
+            GameAction.BetPrompt -> print("Enter this round's bet (1- ${player?.money}): ")
+            GameAction.ActionPrompt -> print("Enter action (hit | stay | hand): ")
+            GameAction.PInfo -> print(player)
+            GameAction.Tie -> println("It's a tie!")
+            GameAction.PBust -> println("Player bust!")
+            GameAction.DBust -> println("Dealer bust!")
+            GameAction.DP21 -> println("Dealer and player have 21!")
+            GameAction.D21 -> println("Dealer has 21!")
+            GameAction.P21 -> println("Player has 21!")
+            GameAction.PT -> println("Player has a higher total!")
+            GameAction.DT -> println("Dealer has a higher total!")
+        }
+    }
+}
+
+class PlayerObserver(_subject: Human) {
+    val subject: Human = _subject
+}
+
+class DeckObserver() {
+    var subject: Deck? = null
+
+    fun notify(param: String, c: Card) {
+        println(param + " receives " + c)
+    }
+}
+
 data class Card(val suit: String, val worth: Int, val tag: String) {
     override fun equals(other: Any?) : Boolean {
         if (this === other) return true
@@ -14,7 +52,7 @@ data class Card(val suit: String, val worth: Int, val tag: String) {
     override fun toString(): String = tag + suit
 }
 
-data class Deck(val temp: Int) {
+data class Deck(val temp: Int, var _obs: DeckObserver) {
     val tagsToVals: Map<String, out Int> = mapOf(
         "A" to 11, "2" to 2, "3" to 3,
         "4" to 4, "5" to 5, "6" to 6,
@@ -22,8 +60,10 @@ data class Deck(val temp: Int) {
         "T" to 10, "J" to 10, "Q" to 10,
         "K" to 10
     )
+    var obs: DeckObserver = _obs
     var cards = ArrayList<Card>()
     init {
+        obs.subject = this as Deck?
         build()
     }
     fun build() {
@@ -43,7 +83,7 @@ data class Deck(val temp: Int) {
     fun deal(player: Human, outCard: Boolean=false) {
         for (i in 0..player.hands.size-1) {
             val c: Card = cards.removeAt(0)
-            if (outCard) println(player.tag + " receives " + c)
+            if (outCard) obs.notify(player.tag, c)
             player.receiveCard(c, i)
         }
     }
@@ -131,8 +171,8 @@ open class Human(name: String="Player", amt: Int=100) {
 
 class Player(name: String, amt: Int=100): Human(name, amt) {}
 
-class Dealer(amt: Int=100000): Human("Dealer", amt) {
-    var d: Deck = Deck(0)
+class Dealer(amt: Int=100000, deckObs: DeckObserver): Human("Dealer", amt) {
+    var d: Deck = Deck(0, deckObs)
     override fun reset() {
         hands = ArrayList<Hand>()
         hands.add(Hand())
@@ -148,17 +188,19 @@ infix fun Human.wins(amt: Int) {
     this.money += amt
 }
 
-class Game() {
-    var dealer: Dealer = Dealer()
+class Game(deckObs: DeckObserver, _obs: GameObserver) {
+    var dealer: Dealer = Dealer(deckObs=deckObs)
     var player: Player
+    var obs: GameObserver = _obs
     init {
+        obs.subject = this
         player = run {
-            print("Enter name: ")
+            obs.notify(GameAction.NamePrompt)
             val name: String? = readLine()
             val money: Int = run {
                 var temp: Int = 0
                 while (temp < 100 || temp > 1000) {
-                    print("Enter money (100- 1000): ")
+                    obs.notify(GameAction.MoneyPrompt)
                     temp = readLine()?.toInt() as Int
                 }
                 temp
@@ -173,31 +215,31 @@ class Game() {
         val bet: Int = run {
             var money: Int = 0
             while (money < 1 || money > player.money) {
-                print("Enter this round's bet (1- ${player.money}): ")
+                obs.notify(GameAction.BetPrompt, player)
                 money = readLine()?.toInt() as Int
             }
             money
         }
         for (i in 1..2) dealer deal player
         for (i in 1..2) dealer deal dealer
-        print(player)
+        obs.notify(GameAction.PInfo, player)
         var winner: String = "None"
         while (winner == "None") {
-            print("Enter action (hit | stay | hand): ")
+            obs.notify(GameAction.ActionPrompt)
             val action: String = readLine() as String
             if (action == "hand") {
-                print(player)
+                obs.notify(GameAction.PInfo, player)
             } else if (action == "hit" && player.getScore() < 21) {
                 dealer deal player
             } else if (action == "stay") {
                 while (dealer.getScore() < 17) dealer deal dealer
-                print(player)
-                print(dealer)
+                obs.notify(GameAction.PInfo, player)
+                obs.notify(GameAction.PInfo, dealer)
                 winner = determineWinner()
                 when(winner) {
                     "Player" -> run {player wins bet}
                     "Dealer" -> run {dealer wins bet; player wins -bet}
-                    else -> println("It's a tie!")
+                    else -> obs.notify(GameAction.Tie)
                 }
             }
         }
@@ -210,28 +252,27 @@ class Game() {
         val ph: Int = player.getScore()
         val dh: Int = dealer.getScore()
         if (ph > 21) {
-            println("Player bust!")
+            obs.notify(GameAction.PBust)
             return "Dealer";
         } else if (dh > 21) {
-            println("Dealer bust!")
+            obs.notify(GameAction.DBust)
             return "Player";
         } else if (dh == 21 && ph == 21) {
-            println("Dealer and player have 21!")
+            obs.notify(GameAction.DP21)
             return "No one";
         } else if (dh == 21) {
-            println("Dealer has 21!")
+            obs.notify(GameAction.D21)
             return "Dealer";
         } else if (ph == 21) {
-            println("Player has 21!")
+            obs.notify(GameAction.P21)
             return "Player";
         } else if (ph == dh) {
-            println("Tie!")
             return "No one";
         } else if (ph > dh) {
-            println("Player has a higher total!")
+            obs.notify(GameAction.PT)
             return "Player";
         } else if (dh > ph) {
-            println("Dealer has a higher total!")
+            obs.notify(GameAction.DT)
             return "Dealer";
         }
         return "None"
@@ -239,5 +280,7 @@ class Game() {
 }
 
 fun main() {
-    Game()
+    var x: DeckObserver = DeckObserver()
+    var y: GameObserver = GameObserver()
+    Game(x, y)
 }
